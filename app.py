@@ -58,7 +58,10 @@ if "messages" not in st.session_state:
 def send_message():
     user_message = st.session_state.user_input
     st.session_state.messages.append({"role": "user", "content": user_message})
-    response = ask_chatgpt(user_message, context)
+
+    with st.spinner("O assistente está pensando..."):
+        response = ask_chatgpt(user_message, context)
+
     st.session_state.messages.append(
         {"role": "assistant", "content": response})
     st.session_state.user_input = ""
@@ -69,5 +72,6 @@ for message in st.session_state.messages:
         st.write(f"**Usuário:** {message['content']}")
     else:
         st.write(f"**Assistente:** {message['content']}")
+
 
 st.text_input("Digite sua pergunta:", key="user_input", on_change=send_message)
