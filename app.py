@@ -2,8 +2,6 @@ import streamlit as st
 from PyPDF2 import PdfReader
 import requests
 
-# Função para extrair texto de um PDF
-
 
 def extract_text_from_pdf(pdf_file):
     pdf_reader = PdfReader(pdf_file)
@@ -12,51 +10,64 @@ def extract_text_from_pdf(pdf_file):
         text += page.extract_text()
     return text
 
-# Função para fazer uma pergunta à API do ChatGPT
-
 
 def ask_chatgpt(question, context):
-    api_key = st.secrets["openai"]["api_key"]
+    api_key = st.secrets["openai"]["openai_key"]
     headers = {
         'Content-Type': 'application/json',
         'Authorization': f'Bearer {api_key}',
     }
     data = {
-        "model": "gpt-4",
+        "model": "gpt-4o",
         "messages": [
             {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": context},
-            {"role": "user", "content": question}
+            {"role": "user", "content": f"Context: {context}\n\nPergunta: {question}"}
         ]
     }
     response = requests.post(
         'https://api.openai.com/v1/chat/completions', headers=headers, json=data)
-    return response.json()['choices'][0]['message']['content']
+
+    if response.status_code == 200:
+        response_json = response.json()
+        if 'choices' in response_json and len(response_json['choices']) > 0:
+            return response_json['choices'][0]['message']['content']
+        else:
+            return "Nenhuma resposta válida foi retornada pela API."
+    else:
+        return f"Erro ao chamar a API: {response.status_code} - {response.text}"
 
 
-# Interface do Streamlit
-st.title("Ferramenta de Análise de PDFs de Licitação")
-st.write("Faça upload dos PDFs, defina instruções e faça perguntas para extrair informações.")
+st.title("Assistente de PDFs")
+st.write("Faça upload de PDFs e faça perguntas sobre o conteúdo.")
 
-# Upload de múltiplos PDFs
+
 uploaded_files = st.file_uploader(
-    "Upload dos PDFs", type=["pdf"], accept_multiple_files=True)
+    "Upload de PDFs", type=["pdf"], accept_multiple_files=True)
+
+context = ""
 
 if uploaded_files:
-    pdf_texts = []
     for uploaded_file in uploaded_files:
         text = extract_text_from_pdf(uploaded_file)
-        pdf_texts.append(text)
-    combined_text = " ".join(pdf_texts)
+        context += text
 
-    st.text_area("Texto extraído", value=combined_text, height=300)
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-    question = st.text_input("Faça sua pergunta sobre os PDFs")
 
-    if st.button("Enviar Pergunta"):
-        if question:
-            response = ask_chatgpt(question, combined_text)
-            st.write("Resposta:")
-            st.write(response)
-        else:
-            st.write("Por favor, insira uma pergunta.")
+def send_message():
+    user_message = st.session_state.user_input
+    st.session_state.messages.append({"role": "user", "content": user_message})
+    response = ask_chatgpt(user_message, context)
+    st.session_state.messages.append(
+        {"role": "assistant", "content": response})
+    st.session_state.user_input = ""
+
+
+for message in st.session_state.messages:
+    if message["role"] == "user":
+        st.write(f"**Usuário:** {message['content']}")
+    else:
+        st.write(f"**Assistente:** {message['content']}")
+
+st.text_input("Digite sua pergunta:", key="user_input", on_change=send_message)
