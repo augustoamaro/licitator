@@ -80,7 +80,7 @@ def ask_chatgpt(question, context):
 
 
 # Interface do Streamlit
-st.title("Assistente de PDFs")
+st.title("Assistente de Licitações BidsIA")
 st.write("Faça upload de PDFs e faça perguntas sobre o conteúdo.")
 
 # Upload de PDFs
