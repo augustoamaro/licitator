@@ -219,7 +219,7 @@ def main():
         # Campo de entrada de mensagem e botões de enviar e limpar
         st.text_input("Digite sua pergunta:",
                       key="user_input", on_change=send_message)
-        col1, col2, col3 = st.columns([1, 8, 1])
+        col1, col2, col3 = st.columns([1, 6, 1])
         with col1:
             st.button("Enviar", on_click=send_message)
         with col2:
