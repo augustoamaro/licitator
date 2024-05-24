@@ -4,12 +4,40 @@ import requests
 import mysql.connector
 from mysql.connector import Error
 
+# Função para testar a conexão com o banco de dados
+
+
+def test_db_connection():
+    try:
+        connection = mysql.connector.connect(
+            host=st.secrets["mysql"]["host"],
+            port=st.secrets["mysql"]["port"],
+            user=st.secrets["mysql"]["user"],
+            password=st.secrets["mysql"]["password"],
+            database=st.secrets["mysql"]["database"]
+        )
+        if connection.is_connected():
+            db_info = connection.get_server_info()
+            st.write(f"Connected to MySQL Server version {db_info}")
+            connection.close()
+    except Error as e:
+        st.write(f"Error while connecting to MySQL: {e}")
+
+
+test_db_connection()
+
 # Função de autenticação
 
 
 def authenticate(username, password):
     try:
-        connection = create_connection()
+        connection = mysql.connector.connect(
+            host=st.secrets["mysql"]["host"],
+            port=st.secrets["mysql"]["port"],
+            user=st.secrets["mysql"]["user"],
+            password=st.secrets["mysql"]["password"],
+            database=st.secrets["mysql"]["database"]
+        )
         cursor = connection.cursor(dictionary=True)
         query = "SELECT * FROM users WHERE username = %s AND password = %s"
         cursor.execute(query, (username, password))
@@ -21,7 +49,7 @@ def authenticate(username, password):
             return True
         return False
     except Error as e:
-        print(f"Error: {e}")
+        st.write(f"Error: {e}")
         return False
 
 # Função para obter as instruções e temperatura
@@ -29,7 +57,13 @@ def authenticate(username, password):
 
 def get_instructions():
     try:
-        connection = create_connection()
+        connection = mysql.connector.connect(
+            host=st.secrets["mysql"]["host"],
+            port=st.secrets["mysql"]["port"],
+            user=st.secrets["mysql"]["user"],
+            password=st.secrets["mysql"]["password"],
+            database=st.secrets["mysql"]["database"]
+        )
         cursor = connection.cursor(dictionary=True)
         query = "SELECT * FROM instructions LIMIT 1"
         cursor.execute(query)
@@ -40,7 +74,7 @@ def get_instructions():
             return instructions['text'], instructions['temperature']
         return "", 0.7
     except Error as e:
-        print(f"Error: {e}")
+        st.write(f"Error: {e}")
         return "", 0.7
 
 # Função para salvar as instruções e temperatura
@@ -48,7 +82,13 @@ def get_instructions():
 
 def save_instructions(text, temperature):
     try:
-        connection = create_connection()
+        connection = mysql.connector.connect(
+            host=st.secrets["mysql"]["host"],
+            port=st.secrets["mysql"]["port"],
+            user=st.secrets["mysql"]["user"],
+            password=st.secrets["mysql"]["password"],
+            database=st.secrets["mysql"]["database"]
+        )
         cursor = connection.cursor()
         query = "REPLACE INTO instructions (id, text, temperature) VALUES (1, %s, %s)"
         cursor.execute(query, (text, temperature))
@@ -56,7 +96,7 @@ def save_instructions(text, temperature):
         cursor.close()
         connection.close()
     except Error as e:
-        print(f"Error: {e}")
+        st.write(f"Error: {e}")
 
 # Função para extrair texto de um PDF
 
@@ -97,18 +137,6 @@ def ask_chatgpt(question, context, temperature, instructions):
             return "Nenhuma resposta válida foi retornada pela API."
     else:
         return f"Erro ao chamar a API: {response.status_code} - {response.text}"
-
-# Função para criar conexão com MySQL
-
-
-def create_connection():
-    return mysql.connector.connect(
-        host=st.secrets["mysql"]["host"],
-        port=st.secrets["mysql"]["port"],
-        user=st.secrets["mysql"]["user"],
-        password=st.secrets["mysql"]["password"],
-        database=st.secrets["mysql"]["database"]
-    )
 
 # Interface do Streamlit
 
@@ -191,7 +219,7 @@ def main():
         # Campo de entrada de mensagem e botões de enviar e limpar
         st.text_input("Digite sua pergunta:",
                       key="user_input", on_change=send_message)
-        col1, col2, col3 = st.columns([1, 6, 1])
+        col1, col2, col3 = st.columns([1, 8, 1])
         with col1:
             st.button("Enviar", on_click=send_message)
         with col2:
