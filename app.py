@@ -7,24 +7,24 @@ from mysql.connector import Error
 # Função para testar a conexão com o banco de dados
 
 
-def test_db_connection():
-    try:
-        connection = mysql.connector.connect(
-            host=st.secrets["mysql"]["host"],
-            port=st.secrets["mysql"]["port"],
-            user=st.secrets["mysql"]["user"],
-            password=st.secrets["mysql"]["password"],
-            database=st.secrets["mysql"]["database"]
-        )
-        if connection.is_connected():
-            db_info = connection.get_server_info()
-            st.write(f"Connected to MySQL Server version {db_info}")
-            connection.close()
-    except Error as e:
-        st.write(f"Error while connecting to MySQL: {e}")
+# def test_db_connection():
+#     try:
+#         connection = mysql.connector.connect(
+#             host=st.secrets["mysql"]["host"],
+#             port=st.secrets["mysql"]["port"],
+#             user=st.secrets["mysql"]["user"],
+#             password=st.secrets["mysql"]["password"],
+#             database=st.secrets["mysql"]["database"]
+#         )
+#         if connection.is_connected():
+#             db_info = connection.get_server_info()
+#             st.write(f"Connected to MySQL Server version {db_info}")
+#             connection.close()
+#     except Error as e:
+#         st.write(f"Error while connecting to MySQL: {e}")
 
 
-test_db_connection()
+# test_db_connection()
 
 # Função de autenticação
 
