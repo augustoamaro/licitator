@@ -1,6 +1,62 @@
 import streamlit as st
 from PyPDF2 import PdfReader
 import requests
+import mysql.connector
+from mysql.connector import Error
+
+# Função de autenticação
+
+
+def authenticate(username, password):
+    try:
+        connection = create_connection()
+        cursor = connection.cursor(dictionary=True)
+        query = "SELECT * FROM users WHERE username = %s AND password = %s"
+        cursor.execute(query, (username, password))
+        user = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        if user:
+            st.session_state.role = user['role']
+            return True
+        return False
+    except Error as e:
+        print(f"Error: {e}")
+        return False
+
+# Função para obter as instruções e temperatura
+
+
+def get_instructions():
+    try:
+        connection = create_connection()
+        cursor = connection.cursor(dictionary=True)
+        query = "SELECT * FROM instructions LIMIT 1"
+        cursor.execute(query)
+        instructions = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        if instructions:
+            return instructions['text'], instructions['temperature']
+        return "", 0.7
+    except Error as e:
+        print(f"Error: {e}")
+        return "", 0.7
+
+# Função para salvar as instruções e temperatura
+
+
+def save_instructions(text, temperature):
+    try:
+        connection = create_connection()
+        cursor = connection.cursor()
+        query = "REPLACE INTO instructions (id, text, temperature) VALUES (1, %s, %s)"
+        cursor.execute(query, (text, temperature))
+        connection.commit()
+        cursor.close()
+        connection.close()
+    except Error as e:
+        print(f"Error: {e}")
 
 # Função para extrair texto de um PDF
 
@@ -15,56 +71,20 @@ def extract_text_from_pdf(pdf_file):
 # Função para fazer uma pergunta à API do ChatGPT
 
 
-def ask_chatgpt(question, context):
+def ask_chatgpt(question, context, temperature, instructions):
     api_key = st.secrets["openai"]["openai_key"]
     headers = {
         'Content-Type': 'application/json',
         'Authorization': f'Bearer {api_key}',
     }
 
-    instructions = """
-    Você é um assistente de licitações chamado BidsIA. Serve para analisar Editais que estarão em PDF. A análise deve ser fiel aos documentos, não invente nada, a linguagem é exclusivamente em português e sempre que o usuário digitar "relatório", você consulta o material enviado nunca, nunca consulte a internet, somente os arquivos enviados e responder as perguntas abaixo:
-    1. **Nome do Órgão**;
-    2. **Qual é o Pregão Eletrônico e o Edital?**
-    2.1. **Sempre traga os números de identificação**;
-    2.2. **liste-os um embaixo do outro**;
-    3. **Qual site ou portal será a disputa da licitação/pregão**;
-    4. **Qual lei LEI o edital se enquadra (8.666/93 ou 14.133/21)**
-    4.1. **O Edital vai se basear em uma das duas leis acima (8.666/93 ou 14.133/21), esta informação tem no edital**;
-    5. **Qual objeto (objetivo) deste pregão?**;
-    6. **Qual o valor total (global) da licitação**;
-    6.1. **Quando falar em valor global pode estar na licitação também como valor estimado**;
-    7. **Qual o modo do pregão (modo de disputa)**;
-    8. **Qual proposta? Ao responder essa pergunta, organize em listas**;
-    9. **Qual critérios de julgamento?**;
-    10. **Liste as habilitações (habilidades) necessárias ou documento de habilitação ou documentos exigidos para participar do Pregão**;
-    10.1. **Mostre toda documentação exigida. Quando for apresentar as habilitações, liste elas por tópicos, um embaixo do outro para melhor entendimento e explique cada habilitação necessária. Quando falar em habilidades, procure todos os documentos/habilidades, também chamados de comprovantes e alvarás para participar da licitação**;
-    10.2. **Seja completo e não resuma**;
-    11. **Em que data será permitido o cadastro? A inscrição**;
-    12. **Qual data e hora que será a disputa da licitação?**
-    12.1. **Quando falo em data e hora do pregão pode ser também: Horário e Data do Pregão, Momento e Data da Licitação, Dia e Hora do Leilão, Data e Horário da Concorrência, Programação da Disputa do Pregão, Agenda da Licitação, Horário e Dia da Adjudicação, Marcador Temporal da Disputa do Pregão**;
-    13. **Duração do Contrato**:
-    13.1. **Duração do Contrato, o mesmo que: Período de Contrato, Vigência do Contrato, Tempo de Vínculo, Prazo do Contrato, Extensão do Contrato, Período de Validade do Contrato, Termo do Contrato, Tempo de Compromisso, Período de Acordo**;
-    14. **Existe alguma especificação quanto as casas decimais após a vírgula (se aceita 0,01 ou 0,0001 ou negativo, ou 0,00) para a formação de preço dentro da disputa?**
-    14.1. **Nunca invente uma resposta, se não achar menções referentes as casas decimais utilizadas escreva na resposta "Não existe menções as casas decimais utilizadas, sugiro entrar em contato com a prefeitura para maiores esclarecimentos"**.
-    15. **Sugestão de Agência: (RM, FACTO, GLOBAL, VOARE, ESTAU e PORTAL)**:
-    15.1. **Deve sugerir a Agência RM quando o Edital for necessário que a agência tenha IATA próprio e atestados companhias próprio (se o edital exige IATA e não dá a opção de consolidadora, só pode sugerir a Agência RM)**;
-    15.2. **A Agência RM possui filial em DF/MA/RJ/RN, se o órgão for de algum desses lugares, sugira Agência RM**;
-    15.3. **Sugira a Agência RM, quando o valor global da licitação for maior ou igual a R$ 3.000.000,00 (Três milhões de reais), se o valor global for menor não for menor que R$ 3.000.000,00 não indique a Agência RM**;
-    15.4. **Sugira a Agência Voar se o edital for de Tocantins (os editais de TO, sempre sugira a Agência Voar)**;
-    15.5. **Sugira a Agência Facto se o edital for de São Paulo, sempre SP sugerir Agência Facto**;
-    15.6. **Quando o Edital for de Santa Catarina sugira as agências: Global, Estau, Portal**;
-    15.6.1 **Quando o valor Global for maior que R$ 1.000.000 sugira a Agência Estau**;
-    15.6.2 **Quando o valor Global for menor que R$ 1.000.000 sugira a Agência Portal**;
-    15.7. **Se o critério de julgamento é maior desconto no bilhete sugira Agência Facto, Agência Estau, Agência Portal ou Agência Global**.
-    """
-
     data = {
         "model": "gpt-4o",
         "messages": [
             {"role": "system", "content": instructions},
             {"role": "user", "content": f"Context: {context}\n\nPergunta: {question}"}
-        ]
+        ],
+        "temperature": temperature
     }
     response = requests.post(
         'https://api.openai.com/v1/chat/completions', headers=headers, json=data)
@@ -78,59 +98,104 @@ def ask_chatgpt(question, context):
     else:
         return f"Erro ao chamar a API: {response.status_code} - {response.text}"
 
+# Função para criar conexão com MySQL
+
+
+def create_connection():
+    return mysql.connector.connect(
+        host=st.secrets["mysql"]["host"],
+        user=st.secrets["mysql"]["user"],
+        password=st.secrets["mysql"]["password"],
+        database=st.secrets["mysql"]["database"]
+    )
 
 # Interface do Streamlit
-st.title("Assistente de Licitações BidsIA")
-st.write("Faça upload de PDFs e faça perguntas sobre o conteúdo.")
-
-# Upload de PDFs
-uploaded_files = st.file_uploader(
-    "Upload de PDFs", type=["pdf"], accept_multiple_files=True)
-
-context = ""
-
-if uploaded_files:
-    for uploaded_file in uploaded_files:
-        text = extract_text_from_pdf(uploaded_file)
-        context += text
-
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-# Função para enviar mensagem
 
 
-def send_message():
-    user_message = st.session_state.user_input
-    if user_message:
-        st.session_state.messages.append(
-            {"role": "user", "content": user_message})
+def main():
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+        st.session_state.role = ""
 
-        with st.spinner("O assistente está pensando..."):
-            response = ask_chatgpt(user_message, context)
-
-        st.session_state.messages.append(
-            {"role": "assistant", "content": response})
-        st.session_state.user_input = ""
-
-# Função para limpar mensagens
-
-
-def clear_messages():
-    st.session_state.messages = []
-
-
-# Exibir mensagens
-for message in st.session_state.messages:
-    if message["role"] == "user":
-        st.write(f"**Usuário:** {message['content']}")
+    if not st.session_state.authenticated:
+        st.title("Login")
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        if st.button("Login"):
+            if authenticate(username, password):
+                st.session_state.authenticated = True
+                st.rerun()
+            else:
+                st.error("Usuário ou senha incorretos")
     else:
-        st.write(f"**Assistente:** {message['content']}")
+        if "instructions" not in st.session_state or "temperature" not in st.session_state:
+            instructions, temperature = get_instructions()
+            st.session_state.instructions = instructions
+            st.session_state.temperature = temperature
 
-# Campo de entrada de mensagem e botões de enviar e limpar
-st.text_input("Digite sua pergunta:", key="user_input", on_change=send_message)
-col1, col2 = st.columns([1, 8])
-with col1:
-    st.button("Enviar", on_click=send_message)
-with col2:
-    st.button("Limpar Conversa", on_click=clear_messages)
+        st.sidebar.title("Administração")
+        if st.session_state.role == "admin":
+            st.sidebar.write("Bem-vindo, Administrador")
+            st.sidebar.text_area("Instruções", key="instructions", height=300)
+            st.sidebar.slider("Temperatura", 0.0, 1.0,
+                              st.session_state.temperature, key="temperature")
+            if st.sidebar.button("Salvar Instruções"):
+                save_instructions(st.session_state.instructions,
+                                  st.session_state.temperature)
+                st.success("Instruções salvas com sucesso!")
+        else:
+            st.sidebar.write("Acesso restrito ao administrador")
+
+        st.title("Assistente de Licitações BidsIA")
+
+        # Upload de PDFs
+        uploaded_files = st.file_uploader(
+            "Upload de PDFs", type=["pdf"], accept_multiple_files=True)
+
+        context = ""
+        if uploaded_files:
+            for uploaded_file in uploaded_files:
+                text = extract_text_from_pdf(uploaded_file)
+                context += text
+
+        if "messages" not in st.session_state:
+            st.session_state.messages = []
+
+        # Função para enviar mensagem
+        def send_message():
+            user_message = st.session_state.user_input
+            if user_message:
+                st.session_state.messages.append(
+                    {"role": "user", "content": user_message})
+
+                with st.spinner("O assistente está pensando..."):
+                    response = ask_chatgpt(
+                        user_message, context, st.session_state.temperature, st.session_state.instructions)
+
+                st.session_state.messages.append(
+                    {"role": "assistant", "content": response})
+                st.session_state.user_input = ""
+
+        # Função para limpar mensagens
+        def clear_messages():
+            st.session_state.messages = []
+
+        # Exibir mensagens
+        for message in st.session_state.messages:
+            if message["role"] == "user":
+                st.write(f"**Usuário:** {message['content']}")
+            else:
+                st.write(f"**Assistente:** {message['content']}")
+
+        # Campo de entrada de mensagem e botões de enviar e limpar
+        st.text_input("Digite sua pergunta:",
+                      key="user_input", on_change=send_message)
+        col1, col2, col3 = st.columns([1, 6, 1])
+        with col1:
+            st.button("Enviar", on_click=send_message)
+        with col2:
+            st.button("Limpar Conversa", on_click=clear_messages)
+
+
+if __name__ == "__main__":
+    main()
