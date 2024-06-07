@@ -1,12 +1,10 @@
 import streamlit as st
 from PyPDF2 import PdfReader
-import requests
 import mysql.connector
 from mysql.connector import Error
+import openai
 
 # Função para testar a conexão com o banco de dados
-
-
 # def test_db_connection():
 #     try:
 #         connection = mysql.connector.connect(
@@ -22,7 +20,6 @@ from mysql.connector import Error
 #             connection.close()
 #     except Error as e:
 #         st.write(f"Error while connecting to MySQL: {e}")
-
 
 # test_db_connection()
 
@@ -108,35 +105,26 @@ def extract_text_from_pdf(pdf_file):
         text += page.extract_text()
     return text
 
-# Função para fazer uma pergunta à API do ChatGPT
+# Função para fazer uma pergunta à API do ChatGPT usando a biblioteca oficial
 
 
 def ask_chatgpt(question, context, temperature, instructions):
     api_key = st.secrets["openai"]["openai_key"]
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': f'Bearer {api_key}',
-    }
+    openai.api_key = api_key
 
-    data = {
-        "model": "gpt-4o",
-        "messages": [
+    response = openai.ChatCompletion.create(
+        model="gpt-4o",
+        messages=[
             {"role": "system", "content": instructions},
             {"role": "user", "content": f"Context: {context}\n\nPergunta: {question}"}
         ],
-        "temperature": temperature
-    }
-    response = requests.post(
-        'https://api.openai.com/v1/chat/completions', headers=headers, json=data)
+        temperature=temperature
+    )
 
-    if response.status_code == 200:
-        response_json = response.json()
-        if 'choices' in response_json and len(response_json['choices']) > 0:
-            return response_json['choices'][0]['message']['content']
-        else:
-            return "Nenhuma resposta válida foi retornada pela API."
+    if response and response.choices:
+        return response.choices[0].message['content']
     else:
-        return f"Erro ao chamar a API: {response.status_code} - {response.text}"
+        return "Nenhuma resposta válida foi retornada pela API."
 
 # Interface do Streamlit
 
