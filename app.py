@@ -122,7 +122,7 @@ def ask_chatgpt(question, context, temperature, instructions):
     )
 
     if response and response.choices:
-        return response.choices[0].message['content']
+        return response.choices[0].message.content
     else:
         return "Nenhuma resposta válida foi retornada pela API."
 
