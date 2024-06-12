@@ -2,7 +2,7 @@ import streamlit as st
 from PyPDF2 import PdfReader
 import mysql.connector
 from mysql.connector import Error
-import openai
+from openai import OpenAI
 
 # Função para testar a conexão com o banco de dados
 # def test_db_connection():
@@ -110,9 +110,9 @@ def extract_text_from_pdf(pdf_file):
 
 def ask_chatgpt(question, context, temperature, instructions):
     api_key = st.secrets["openai"]["openai_key"]
-    openai.api_key = api_key
+    client = OpenAI(api_key=api_key)
 
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
             {"role": "system", "content": instructions},
