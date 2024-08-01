@@ -4,25 +4,6 @@ import mysql.connector
 from mysql.connector import Error
 from openai import OpenAI
 
-# Função para testar a conexão com o banco de dados
-# def test_db_connection():
-#     try:
-#         connection = mysql.connector.connect(
-#             host=st.secrets["mysql"]["host"],
-#             port=st.secrets["mysql"]["port"],
-#             user=st.secrets["mysql"]["user"],
-#             password=st.secrets["mysql"]["password"],
-#             database=st.secrets["mysql"]["database"]
-#         )
-#         if connection.is_connected():
-#             db_info = connection.get_server_info()
-#             st.write(f"Connected to MySQL Server version {db_info}")
-#             connection.close()
-#     except Error as e:
-#         st.write(f"Error while connecting to MySQL: {e}")
-
-# test_db_connection()
-
 # Função de autenticação
 
 
@@ -150,6 +131,7 @@ def main():
             st.session_state.instructions = instructions
             st.session_state.temperature = temperature
 
+        st.sidebar.image("logo_monkey.png", width=50)
         st.sidebar.title("Administração")
         if st.session_state.role == "admin":
             st.sidebar.write("Bem-vindo, Administrador")
@@ -212,6 +194,26 @@ def main():
             st.button("Enviar", on_click=send_message)
         with col2:
             st.button("Limpar Conversa", on_click=clear_messages)
+
+        # rodapé
+        st.markdown("""
+            <style>
+                .footer {
+                    position: fixed;
+                    left: 0;
+                    bottom: 0;
+                    width: 100%;
+                    background-color: #0e1117;
+                    text-align: center;
+                    padding: 10px;
+                    font-size: 16px;
+                    border-top: 1px solid #eaeaea;
+                }
+            </style>
+            <div class="footer">
+                Desenvolvido por Monkey Branch 🐒
+            </div>
+            """, unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
